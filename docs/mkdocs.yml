@@ -1,0 +1,8 @@
+site_name: logagg-master
+nav:
+        - Overview: index.md
+        - logagg-fs: master.md
+        - logagg-collector: collector.md
+        - nsq-api: nsq_api.md
+
+theme: readthedocs

@@ -26,7 +26,6 @@ class MasterService():
         self.master = master
         self.log = log
 
-
     def ping(self, key:str, secret:str) -> dict:
         '''
         Sample url:
@@ -39,7 +38,6 @@ class MasterService():
             return {'success': True, 'details': 'Authentication failed'}
 
         return {'success': False, 'details': 'Authentication failed'}
-
 
     def add_nsq(self, nsqd_tcp_address:str, nsqd_http_address:str, key:str, secret:str) -> dict:
         '''
@@ -75,7 +73,6 @@ class MasterService():
 
             return {'success': False, 'details': 'Authentication failed'}
 
-
     def get_nsq(self, key:str, secret:str) -> list:
         '''
         Get nsq details
@@ -92,7 +89,6 @@ class MasterService():
             return {'success': True, 'nsq_list':nsq_list}
         else:
             return {'success': False, 'details': 'Authentication failed'}
-
 
     def register_nsq_api(self, key:str, secret:str, host:str, port:str) -> dict:
         '''
@@ -117,7 +113,6 @@ class MasterService():
         else:
 
             return {'success': False, 'details': 'Authentication failed'}
-
    
     def _create_topic(self, topic_name):
         '''
@@ -163,7 +158,6 @@ class MasterService():
 
         return topic_list
 
-
     def get_topic_info(self, topic_name:str) -> dict:
         '''
         Get details of a particular topic
@@ -177,7 +171,6 @@ class MasterService():
         else:
             del topic['_id']
             return {'success': True, 'topic_info': topic}
-
 
     def _delete_topic(self, topic_name:str):
         '''
@@ -202,7 +195,6 @@ class MasterService():
         delete_topic = self.master.topic_collection.delete_one({'topic_name': topic_name})
 
         return {'success': True, 'collectors_stopped': delete_topic.deleted_count}
-
 
     def register_component(self, namespace:str, topic_name:str, host:str, port:str) -> dict:
         '''
@@ -239,7 +231,6 @@ class MasterService():
 
         else: return create_topic_result
 
-
     def get_components(self, topic_name:str) -> dict:
         '''
         Get all components in a topic
@@ -255,7 +246,6 @@ class MasterService():
             del c['_id']
             components_info.append(c)
         return {'success': True, 'components_info': components_info}
-
 
     def collector_add_file(self, topic_name:str,
                             collector_host:str,
@@ -287,8 +277,7 @@ class MasterService():
                 add_file_result = json.loads(add_file_result.decode('utf-8'))
             except requests.exceptions.ConnectionError:
                 return {'success': False, 'details': 'Could not reach collector'}
-            return {'success': True, 'fpaths': add_file_result['result']}
-
+            return {'success': True, 'fpaths': add_file_result.get('result')}
 
     def collector_remove_file(self, topic_name:str,
                             collector_host:str,
@@ -320,8 +309,7 @@ class MasterService():
                 remove_file_result = json.loads(remove_file_result.decode('utf-8'))
             except requests.exceptions.ConnectionError:
                 return {'success': False, 'details': 'Could not reach collector'}
-            return {'success': True, 'fpaths': remove_file_result['result']}
-
+            return {'success': True, 'fpaths': remove_file_result.get('result')}
 
     def tail_logs(self, req:Request, topic_name:str) -> Generator:
         '''
@@ -332,11 +320,11 @@ class MasterService():
         if not topic: return {'success': False, 'details': 'Topic not found'}
 
         nsq_api_address = topic['nsq_api_address']
-        topic = topic['logs_topic']
+        log_topic = topic['logs_topic']
         nsqd_tcp_address = topic['nsqd_tcp_address']
         url = self.NSQ_API_URL.format(nsq_api_address=nsq_api_address,
                                         nsqd_tcp_address=nsqd_tcp_address,
-                                        topic=topic,
+                                        topic=log_topic,
                                         empty_lines='yes')
         s = requests.session()
         try:
@@ -361,6 +349,7 @@ class MasterService():
                 log_list = []
                 start = time.time()
 
+
 class Master():
     '''
     Logagg master class
@@ -383,7 +372,6 @@ class Master():
         self.update_component_thread = start_daemon_thread(self.update_components)
         self.update_topic_components_threads = dict()
 
-       
     def _init_mongo_collections(self):
         # Collection for nsq details
         self.nsq_collection = self.db_client['nsq']
@@ -413,7 +401,6 @@ class Master():
         self.topic_collection.create_index([
              ('topic_name', pymongo.ASCENDING)],
              unique=True)
-
 
     def _ensure_db_connection(self):
         url = 'mongodb://{}:{}@{}:{}'.format(self.mongodb.user,
@@ -460,7 +447,6 @@ class Master():
             if resp: resp.close()
             sys.exit(0)
         time.sleep(self.UPDATE_COMPONENTS_INTERVAL)
-
 
     @keeprunning(UPDATE_COMPONENTS_INTERVAL, on_error=log_exception)
     def update_components(self):

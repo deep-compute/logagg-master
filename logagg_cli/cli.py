@@ -9,9 +9,13 @@ from logagg_utils import ensure_dir
 from deeputil import AttrDict
 from structlog.dev import ConsoleRenderer
 
+
 def prGreen(txt): print("\033[92m {}\033[00m" .format(txt))
+
 def prRed(err): print("\033[91m {}\033[00m" .format(err))
+
 def prYellow(txt): print("\033[93m {}\033[00m" .format(txt))
+
 
 class LogaggCli():
     '''
@@ -33,7 +37,6 @@ class LogaggCli():
         self.state = DiskDict(self.data_path)
         self._init_state()
 
-
     def _init_state(self):
         '''
         Initialize default values for stored state
@@ -45,7 +48,6 @@ class LogaggCli():
             self.state['default_topic'] = dict()
             self.state.flush()
 
-
     def ensure_master(self):
         '''
         Check if Master details are present
@@ -53,10 +55,9 @@ class LogaggCli():
         if not self.state['master']:
             err_msg = 'No master details stored locally'
             prRed(err_msg)
-            sys.exit(0)
+            sys.exit(1)
         else:
             return AttrDict(self.state['master'])
-
 
     def request_master_url(self, url):
         '''
@@ -70,7 +71,7 @@ class LogaggCli():
         except requests.exceptions.ConnectionError:
             err_msg = 'Could not reach master, url: {}'.format(url)
             prRed(err_msg)
-
+            sys.exit(1)
 
     def clear(self):
         '''
@@ -80,7 +81,6 @@ class LogaggCli():
         self.state['default_topic'] = dict()
         self.state.flush()
 
-
     def store_master(self, host, port, auth):
         '''
         Add master details to state file 
@@ -88,21 +88,21 @@ class LogaggCli():
         ping_url = self.MASTER_PING_URL.format(host=host, port=port, key=auth.key, secret=auth.secret)
         ping_result = self.request_master_url(ping_url)
 
-        if ping_result['result']['success']:
-            if ping_result['result']['details'] == 'Authentication passed':
+        if ping_result.get('result', {}).get('success', {}):
+            if ping_result.get('result', {}).get('details', {}) == 'Authentication passed':
                 master_details = {'host': host, 'port': port, 'key': auth.key, 'secret': auth.secret, 'admin': True}
                 self.state['master'] = master_details
                 self.state.flush()
                 prGreen('Added master with admin permission')
-            elif ping_result['result']['details'] == 'Authentication failed' and not auth.key and not auth.secret:
+            elif ping_result.get('result', {}).get('details', {}) == 'Authentication failed' and not auth.key and not auth.secret:
                 master_details = {'host': host, 'port': port, 'key': auth.key, 'secret': auth.secret, 'admin': False}
                 self.state['master'] = master_details
                 self.state.flush()
                 prYellow('Added master with non-admin permission')
             else:
-                err_msg = ping_result['result']['details']
+                err_msg = ping_result.get('result', {}).get('details', {})
                 prRed(err_msg)
-
+                sys.exit(1)
 
     def list_master(self):
         '''
@@ -114,7 +114,6 @@ class LogaggCli():
         data = [[master.host, master.port, str(master.admin)]]
         print(tabulate(data, headers=headers))
 
-
     def add_nsq(self,  nsqd_tcp_address, nsqd_http_address):
         '''
         Add nsq details to master
@@ -124,7 +123,7 @@ class LogaggCli():
         if not master.admin:
             err_msg = 'Requires admin permissions to master'
             prRed(err_msg)
-            sys.exit(0)
+            sys.exit(1)
 
         add_nsq_url = self.MASTER_ADD_NSQ_URL.format(host=master.host,
                                                         port=master.port,
@@ -135,12 +134,12 @@ class LogaggCli():
 
         add_nsq_result = self.request_master_url(add_nsq_url)
 
-        if add_nsq_result['result']['success']:
-            prGreen(add_nsq_result['result']['details'])
+        if add_nsq_result.get('result', {}).get('success', {}):
+            prGreen(add_nsq_result.get('result', {}).get('details', {}))
         else:
-            err_msg =  add_nsq_result['result']['details']
+            err_msg =  add_nsq_result.get('result', {}).get('details', {})
             prRed(err_msg)
-
+            sys.exit(1)
 
     def list_nsq(self):
         '''
@@ -151,7 +150,7 @@ class LogaggCli():
         if not master.admin:
             err_msg = 'Requires admin permissions to master'
             prRed(err_msg)
-            sys.exit(0)
+            sys.exit(1)
 
         get_nsq_url = self.MASTER_GET_NSQ_URL.format(host=master.host,
                                                      port=master.port,
@@ -160,17 +159,16 @@ class LogaggCli():
 
         get_nsq_result = self.request_master_url(get_nsq_url)
     
-        if get_nsq_result['result']['success']:
-            nsq_details = get_nsq_result['result']['nsq_list']
+        if get_nsq_result.get('result', {}).get('success', {}):
+            nsq_details = get_nsq_result.get('result', {}).get('nsq_list', {})
             headers = ['Nsqd TCP address', 'Nsqd HTTP address', 'Nsq depth limit', 'Nsq API address']
             data = list()
             for nsq in nsq_details: data.append(list(nsq.values())) 
             print(tabulate(data, headers=headers))
         else:
-            err_msg = get_nsq_result['result']['details']
+            err_msg = get_nsq_result.get('result', {}).get('details', {})
             prRed(err_msg)
-            sys.exit(0)
-
+            sys.exit(1)
 
     def list_topic(self):
         '''
@@ -182,7 +180,7 @@ class LogaggCli():
         list_topic_url = self.GET_TOPIC_URL.format(host=master.host,
                                                    port=master.port)
         list_topic_result =  self.request_master_url(list_topic_url)
-        topic_list = list_topic_result['result']
+        topic_list = list_topic_result.get('result', {})
 
         master = self.state['master']
         master_admin = master.get('admin')
@@ -208,7 +206,7 @@ class LogaggCli():
         else:
             headers = ['Topic-name',
                     'Nsqd TCP address',
-                    'NSQd TCP address',
+                    'Nsqd HTTP address',
                     'NSQ max depth',
                     'Nsq API address',
                     'Heartbeat topic',
@@ -218,7 +216,6 @@ class LogaggCli():
         data =  list()
         for c in topic_list: data.append(list(c.values()))
         print(tabulate(data, headers=headers))
-
 
     def ensure_topic_info(self, topic_name):
         '''
@@ -230,16 +227,14 @@ class LogaggCli():
         list_topic_url = self.GET_TOPIC_URL.format(host=master.host,
                                                    port=master.port)
         list_topic_result =  self.request_master_url(list_topic_url)
-        topic_list = list_topic_result['result']
+        topic_list = list_topic_result.get('result', [])
 
-       
         for topic in topic_list:
             if topic['topic_name'] == topic_name:
                 return topic
         err_msg = 'No topic found, topic-name: {topic_name}'.format(topic_name=topic_name)
         prRed(err_msg)
-        sys.exit(0)
-       
+        sys.exit(1)
 
     def use_topic(self, topic_name):
         '''
@@ -251,7 +246,6 @@ class LogaggCli():
         self.state.flush()
         prGreen('Switched to default: {}'.format(topic_name))
 
-
     def list_collectors(self):
         '''
         List collectors in an existing topic
@@ -261,6 +255,7 @@ class LogaggCli():
         if not self.state['default_topic']:
             err_msg = 'No default topic'
             prRed(err_msg)
+            sys.exit(1)
         else:
             topic_name = self.state['default_topic']['topic_name']
 
@@ -270,8 +265,8 @@ class LogaggCli():
 
             get_components_result = self.request_master_url(get_components_url)
 
-            if get_components_result['result']['success']: 
-                components_info = get_components_result['result'].get('components_info')
+            if get_components_result.get('result', {}).get('success', {}): 
+                components_info = get_components_result.get('result', {}).get('components_info')
 
                 headers = ['Namespace',
                         'Host',
@@ -296,19 +291,19 @@ class LogaggCli():
 
             else:
                 # Print result
-                msg = get_components_result['result']['details']
+                msg = get_components_result.get('result', {}).get('details', {})
                 prRed(msg)
-
+                sys.exit(1)
 
     def tail(self, pretty):
         '''
         Tail the logs of a topic
         '''
         master = self.ensure_master()
-
         if not self.state['default_topic']:
             err_msg = 'No default topic'
             prRed(err_msg)
+            sys.exit(1)
         else:
             topic_name = self.state['default_topic']['topic_name']
 
@@ -337,12 +332,11 @@ class LogaggCli():
             except requests.exceptions.ConnectionError:
                 err_msg = 'Cannot request master'
                 prRed(err_msg)
-                sys.exit(0)
+                sys.exit(1)
             except Exception as e:
                 if resp: resp.close()
                 raise e
-                sys.exit(0)
-
+                sys.exit(1)
 
     def collector_add_file(self, collector_host, collector_port, fpath, formatter):
         '''
@@ -353,6 +347,7 @@ class LogaggCli():
         if not self.state['default_topic']:
             err_msg = 'No default topic'
             prRed(err_msg)
+            sys.exit(1)
         else:
             topic_name = self.state['default_topic']['topic_name']
 
@@ -366,9 +361,9 @@ class LogaggCli():
 
             add_file_result = self.request_master_url(add_file_url)
 
-            if add_file_result['result']['success']: 
+            if add_file_result.get('result', {}).get('success', {}): 
                 new_fpaths_list = list()
-                for fpath in add_file_result['result']['fpaths']: new_fpaths_list.append([fpath['fpath']])
+                for fpath in add_file_result.get('result', {})['fpaths']: new_fpaths_list.append([fpath['fpath']])
                 headers = ['File paths']
                 data = list()
                 #print result
@@ -376,9 +371,9 @@ class LogaggCli():
 
             else:
                 # Print result
-                msg = get_components_result['result']['details']
+                msg = get_components_result.get('result', {}).get('details', {})
                 prRed(msg)
-
+                sys.exit(1)
 
     def collector_remove_file(self, collector_host, collector_port, fpath):
         '''
@@ -389,6 +384,7 @@ class LogaggCli():
         if not self.state['default_topic']:
             err_msg = 'No default topic'
             prRed(err_msg)
+            sys.exit(1)
         else:
             topic_name = self.state['default_topic']['topic_name']
 
@@ -401,9 +397,9 @@ class LogaggCli():
 
             remove_file_result = self.request_master_url(remove_file_url)
 
-            if remove_file_result['result']['success']: 
+            if remove_file_result.get('result', {}).get('success', {}): 
                 new_fpaths_list = list()
-                for fpath in remove_file_result['result']['fpaths']: new_fpaths_list.append([fpath['fpath']])
+                for fpath in remove_file_result.get('result', {})['fpaths']: new_fpaths_list.append([fpath['fpath']])
                 headers = ['File paths']
                 data = list()
                 #print result
@@ -413,5 +409,4 @@ class LogaggCli():
                 # Print result
                 msg = remove_file_result
                 prRed(msg)
-
-
+                sys.exit(1)
