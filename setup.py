@@ -17,7 +17,7 @@ setup(
 	'basescript==0.2.9',
         'kwikapi==0.4.6',
         'kwikapi-tornado==0.3.3',
-        'logagg_utils==0.5.0',
+        'logagg-utils==0.5.2',
         'ujson==1.35',
         'pymongo==3.7.2',
         'tabulate==0.8.2',

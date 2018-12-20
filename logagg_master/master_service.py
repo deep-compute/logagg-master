@@ -15,7 +15,7 @@ class MasterService():
     '''
     Logagg master API
     '''
-    NSQ_API_URL = 'http://{nsq_api_address}/tail?nsqd_tcp_address={nsqd_tcp_address}&topic={topic}&empty_lines={empty_lines}'
+    NSQ_API_URL = 'http://{nsq_api_address}/tail?nsqd_tcp_address={nsqd_tcp_address}&nsqd_http_address={nsqd_http_address}&topic={topic}&empty_lines={empty_lines}'
     COLLECTOR_ADD_FILE_URL = 'http://{collector_address}/collector/v1/add_file?fpath={fpath}&formatter={formatter}'
     COLLECTOR_REMOVE_FILE_URL = 'http://{collector_address}/collector/v1/remove_file?fpath="{fpath}"'
     COLLECTOR_STOP_URL = 'http://{collector_address}/collector/v1/stop'
@@ -322,8 +322,10 @@ class MasterService():
         nsq_api_address = topic['nsq_api_address']
         log_topic = topic['logs_topic']
         nsqd_tcp_address = topic['nsqd_tcp_address']
+        nsqd_http_address = topic['nsqd_http_address']
         url = self.NSQ_API_URL.format(nsq_api_address=nsq_api_address,
                                         nsqd_tcp_address=nsqd_tcp_address,
+                                        nsqd_http_address=nsqd_http_address,
                                         topic=log_topic,
                                         empty_lines='yes')
         s = requests.session()
@@ -354,7 +356,7 @@ class Master():
     '''
     Logagg master class
     '''
-    NSQ_API_URL = 'http://{nsq_api_address}/tail?nsqd_tcp_address={nsqd_tcp_address}&topic={topic}'
+    NSQ_API_URL = 'http://{nsq_api_address}/tail?nsqd_tcp_address={nsqd_tcp_address}&nsqd_http_address={nsqd_http_address}&topic={topic}'
     SERVER_SELECTION_TIMEOUT = 500  # MongoDB server selection timeout
     NAMESPACE = 'master'
     UPDATE_COMPONENTS_INTERVAL = 30
@@ -422,10 +424,12 @@ class Master():
         topic_info = self.topic_collection.find_one({'topic_name': topic_name})
         topic = topic_info['heartbeat_topic']
         nsqd_tcp_address = topic_info['nsqd_tcp_address']
+        nsqd_http_address = topic_info['nsqd_http_address']
         nsq_api_address = topic_info['nsq_api_address']
 
         url = self.NSQ_API_URL.format(nsq_api_address=nsq_api_address,
                                         nsqd_tcp_address=nsqd_tcp_address,
+                                        nsqd_http_address=nsqd_http_address,
                                         topic=topic,
                                         empty_lines='no')
         try:

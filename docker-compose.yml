@@ -1,0 +1,60 @@
+version: "3.2"
+services:
+
+  nsqlookupd:
+    image: nsqio/nsq
+    command: /nsqlookupd
+    ports:
+      - 4160:4160
+      - 4161:4161
+  nsqd:
+    image: nsqio/nsq
+    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160 -data-path /data/nsq/ 
+    depends_on:
+      - nsqlookupd
+    ports:
+      - 4150:4150
+      - 4151:4151
+    volumes:
+      - type: bind
+        source: /data/nsq/
+        target: /data/nsq/
+  nsqadmin:
+    image: nsqio/nsq
+    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
+    depends_on:
+      - nsqlookupd  
+    ports:
+      - 4171:4171
+
+  mongodb:
+    image: mongo:latest
+    container_name: "mongodb"
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/dev/null
+      - MONGODB_USER="deepcompute"
+      - MONGODB_PASS="rockofgibraltar" 
+    volumes:
+      - /data/db:/data/db
+    ports:
+      - 27016:27016
+    command: mongod --smallfiles --logpath=/dev/null # --quiet
+
+  logagg-master:
+    #image: deepcompute/logagg-master:0.1
+    image: test:latest
+    ports:
+        - 2222:2222
+    links:
+        - mongodb
+    depends_on:
+        - mongodb
+
+  nsq-api:
+    image: deepcompute/logagg-master:0.1
+    ports:
+        - 3333:3333
+    depends_on:
+        - logagg-master
+    command: nsq-api runserver --host 78.47.113.210 --port 3333 --master --master host=78.47.113.210:port=2222:key=xyz:secret=xxxx
